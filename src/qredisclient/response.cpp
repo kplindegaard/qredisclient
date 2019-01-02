@@ -27,6 +27,23 @@ RedisClient::Response::Response(const QByteArray& src)
   feed(src);
 }
 
+// RedisClient::Response::Response(const RedisClient::Response& other)
+//    : m_responseSource(other.m_responseSource),
+//      m_redisReader(
+//          QSharedPointer<redisReader>(redisReaderCreate(), redisReaderFree)),
+//      m_result(other.m_result) {
+//  if (!m_result) {
+//    feed(m_responseSource);
+//  }
+//}
+
+RedisClient::Response::Response(const QByteArray& src,
+                                QSharedPointer<QVariant> result)
+    : m_responseSource(src),
+      m_redisReader(
+          QSharedPointer<redisReader>(redisReaderCreate(), redisReaderFree)),
+      m_result(result) {}
+
 RedisClient::Response::~Response(void) {}
 
 void RedisClient::Response::setSource(const QByteArray& src) {
@@ -35,9 +52,7 @@ void RedisClient::Response::setSource(const QByteArray& src) {
 }
 
 void RedisClient::Response::reset() {
-  m_responseSource.clear();
-  m_redisReader =
-      QSharedPointer<redisReader>(redisReaderCreate(), redisReaderFree);
+  clearBuffers();
   m_result.clear();
 }
 
@@ -48,8 +63,28 @@ void RedisClient::Response::appendToSource(const QByteArray& src) { feed(src); }
 QByteArray RedisClient::Response::getUnusedBuffer() {
   if (!hasUnusedBuffer()) return QByteArray{};
 
-  return QByteArray::fromRawData(m_redisReader->buf, m_redisReader->len)
-      .mid(m_redisReader->pos);
+  return QByteArray(m_redisReader->buf + m_redisReader->pos,
+                    m_redisReader->len);
+}
+
+RedisClient::Response RedisClient::Response::getNextResponse() {
+  if (!hasUnusedBuffer()) return Response();
+
+  long startPos =
+      m_redisReader->pos + (m_responseSource.size() - m_redisReader->len);
+
+  auto result = getNextReplyFromBuffer();
+
+  long endPos =
+      m_redisReader->pos + (m_responseSource.size() - m_redisReader->len);
+
+  return Response(m_responseSource.mid(startPos, endPos - startPos), result);
+}
+
+void RedisClient::Response::clearBuffers() {
+  m_responseSource.clear();
+  m_redisReader =
+      QSharedPointer<redisReader>(redisReaderCreate(), redisReaderFree);
 }
 
 QString RedisClient::Response::toRawString(long limit) const {
@@ -95,6 +130,18 @@ QVariant* convertUnsafeArray(QVariant* arr) {
 bool RedisClient::Response::parse() {
   if (m_responseSource.isEmpty()) return false;
 
+  auto result = getNextReplyFromBuffer();
+
+  if (!result) {
+    return false;
+  }
+
+  m_result = result;
+
+  return true;
+}
+
+QSharedPointer<QVariant> RedisClient::Response::getNextReplyFromBuffer() {
   QVariant* reply = nullptr;
 
   if (redisReaderGetReply(m_redisReader.data(), (void**)&reply) == REDIS_ERR) {
@@ -106,18 +153,16 @@ bool RedisClient::Response::parse() {
 
     if (reply) delete reply;
 
-    return false;
+    return QSharedPointer<QVariant>();
   }
 
-  if (!reply) return false;
+  if (!reply) return QSharedPointer<QVariant>();
 
-  if (getType() == MultiBulk) {
+  if (reply->canConvert<QVector<QVariant*>>()) {
     reply = convertUnsafeArray(reply);
   }
 
-  m_result = QSharedPointer<QVariant>(reply);
-
-  return true;
+  return QSharedPointer<QVariant>(reply);
 }
 
 void RedisClient::Response::feed(const QByteArray& buffer) {
@@ -325,4 +370,9 @@ bool RedisClient::Response::isDisabledCommandErrorMessage() const {
 bool RedisClient::Response::isOkMessage() const {
   return getResponseType(m_responseSource) == Status &&
          m_responseSource.startsWith("+OK");
+}
+
+bool RedisClient::Response::isQueuedMessage() const {
+  return getResponseType(m_responseSource) == Status &&
+         m_responseSource.startsWith("+QUEUED");
 }

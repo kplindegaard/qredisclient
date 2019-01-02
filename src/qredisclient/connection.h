@@ -62,6 +62,7 @@ class Connection : public QObject {
   /**
    * @brief Constructs connection class
    * @param c - connection config
+   * @param autoconnect - Auto connect if disconnected
    * NOTE: different config options are required for different transporters.
    */
   Connection(const ConnectionConfig &c, bool autoConnect = true);
