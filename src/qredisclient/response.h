@@ -68,6 +68,8 @@ class Response {
   QSharedPointer<QVariant> getNextReplyFromBuffer();
   void feed(const QByteArray &buffer);
 
+  long getReaderAbsolutePosition();
+
  protected:
   QByteArray m_responseSource;
   QSharedPointer<redisReader> m_redisReader;

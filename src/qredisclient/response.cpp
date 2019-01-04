@@ -60,23 +60,27 @@ QByteArray RedisClient::Response::source() const { return m_responseSource; }
 
 void RedisClient::Response::appendToSource(const QByteArray& src) { feed(src); }
 
+long RedisClient::Response::getReaderAbsolutePosition() {
+  long pos =
+      m_redisReader->pos + (m_responseSource.size() - m_redisReader->len);
+
+  if (pos >= 0) return pos;
+
+  return 0;
+}
+
 QByteArray RedisClient::Response::getUnusedBuffer() {
   if (!hasUnusedBuffer()) return QByteArray{};
 
-  return QByteArray(m_redisReader->buf + m_redisReader->pos,
-                    m_redisReader->len);
+  return m_responseSource.mid(getReaderAbsolutePosition());
 }
 
 RedisClient::Response RedisClient::Response::getNextResponse() {
   if (!hasUnusedBuffer()) return Response();
 
-  long startPos =
-      m_redisReader->pos + (m_responseSource.size() - m_redisReader->len);
-
+  long startPos = getReaderAbsolutePosition();
   auto result = getNextReplyFromBuffer();
-
-  long endPos =
-      m_redisReader->pos + (m_responseSource.size() - m_redisReader->len);
+  long endPos = getReaderAbsolutePosition();
 
   return Response(m_responseSource.mid(startPos, endPos - startPos), result);
 }
