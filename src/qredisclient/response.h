@@ -74,6 +74,7 @@ class Response {
   QByteArray m_responseSource;
   QSharedPointer<redisReader> m_redisReader;
   QSharedPointer<QVariant> m_result;
+  long m_endOfValidResponseInBuffer;
 
  private:
   /*
