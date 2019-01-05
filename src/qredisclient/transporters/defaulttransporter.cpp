@@ -61,11 +61,7 @@ bool RedisClient::DefaultTransporter::canReadFromSocket() {
 }
 
 QByteArray RedisClient::DefaultTransporter::readFromSocket() {
-  QByteArray buf;
-  while (m_socket->canReadLine())
-      buf.append(m_socket->readLine());
-  return buf;
-  // return m_socket->readAll();
+  return m_socket->readAll();
 }
 
 bool RedisClient::DefaultTransporter::connectToHost() {
