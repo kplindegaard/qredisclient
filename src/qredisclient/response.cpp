@@ -17,13 +17,15 @@ RedisClient::Response::Response()
     : m_responseSource(""),
       m_redisReader(
           QSharedPointer<redisReader>(redisReaderCreate(), redisReaderFree)),
-      m_result(nullptr) {}
+      m_result(nullptr),
+      m_endOfValidResponseInBuffer(-1) {}
 
 RedisClient::Response::Response(const QByteArray& src)
     : m_responseSource(""),
       m_redisReader(
           QSharedPointer<redisReader>(redisReaderCreate(), redisReaderFree)),
-      m_result(nullptr) {
+      m_result(nullptr),
+      m_endOfValidResponseInBuffer(-1) {
   feed(src);
 }
 
@@ -42,7 +44,8 @@ RedisClient::Response::Response(const QByteArray& src,
     : m_responseSource(src),
       m_redisReader(
           QSharedPointer<redisReader>(redisReaderCreate(), redisReaderFree)),
-      m_result(result) {}
+      m_result(result),
+      m_endOfValidResponseInBuffer(-1) {}
 
 RedisClient::Response::~Response(void) {}
 
@@ -60,23 +63,33 @@ QByteArray RedisClient::Response::source() const { return m_responseSource; }
 
 void RedisClient::Response::appendToSource(const QByteArray& src) { feed(src); }
 
+long RedisClient::Response::getReaderAbsolutePosition() {
+  long pos =
+      m_redisReader->pos + (m_responseSource.size() - m_redisReader->len);
+
+  if (pos >= 0) return pos;
+
+  return 0;
+}
+
 QByteArray RedisClient::Response::getUnusedBuffer() {
   if (!hasUnusedBuffer()) return QByteArray{};
 
-  return QByteArray(m_redisReader->buf + m_redisReader->pos,
-                    m_redisReader->len);
+  return m_responseSource.mid(m_endOfValidResponseInBuffer > 0
+                                  ? m_endOfValidResponseInBuffer
+                                  : getReaderAbsolutePosition());
 }
 
 RedisClient::Response RedisClient::Response::getNextResponse() {
   if (!hasUnusedBuffer()) return Response();
 
-  long startPos =
-      m_redisReader->pos + (m_responseSource.size() - m_redisReader->len);
-
+  long startPos = getReaderAbsolutePosition();
   auto result = getNextReplyFromBuffer();
+  long endPos = getReaderAbsolutePosition();
 
-  long endPos =
-      m_redisReader->pos + (m_responseSource.size() - m_redisReader->len);
+  if (result) {
+    m_endOfValidResponseInBuffer = endPos;
+  }
 
   return Response(m_responseSource.mid(startPos, endPos - startPos), result);
 }
