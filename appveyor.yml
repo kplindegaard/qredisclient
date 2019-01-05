@@ -39,7 +39,7 @@ test_script:
 - cmd: >-
     cd tests\unit_tests
 
-    .\tests.exe -vs
+    .\tests.exe
 
 
     REM .\tests.exe -xunitxml -o TEST-results.xml
