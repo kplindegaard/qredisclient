@@ -4,6 +4,7 @@
 #include <QByteArray>
 #include <QList>
 #include <QObject>
+#include "qredisclient_global.h"
 
 namespace RedisClient {
 
@@ -15,7 +16,7 @@ class Response;
  * This class is part of Public API but should be used directly only for
  * advanced cases.
  */
-class Command 
+class QREDISCLIENT_EXPORT Command 
 {    
 public:
     typedef std::function<void(Response, QString)> Callback;

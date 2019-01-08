@@ -6,13 +6,14 @@
 #include <QVector>
 
 #include "exception.h"
+#include "qredisclient_global.h"
 
 struct redisReader;
 struct redisReadTask;
 struct redisReplyObjectFunctions;
 
 namespace RedisClient {
-class Response {
+class QREDISCLIENT_EXPORT Response {
   ADD_EXCEPTION
 
  public:

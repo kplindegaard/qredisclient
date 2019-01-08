@@ -2,6 +2,10 @@ QT += core network
 
 CONFIG += c++11
 
+CONFIG(dll) {
+    DEFINES += QREDISCLIENT_SHARED
+}
+
 HEADERS += \
     $$PWD/src/qredisclient/*.h \
     $$PWD/src/qredisclient/transporters/*.h \

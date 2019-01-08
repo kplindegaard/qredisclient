@@ -26,7 +26,7 @@ typedef QMap<int, int> DatabaseList;
  * @brief The ServerInfo struct
  * Represents redis-server information parsed from INFO command.
  */
-struct ServerInfo {
+struct QREDISCLIENT_EXPORT ServerInfo {
   ServerInfo();
 
   double version;
@@ -48,7 +48,7 @@ struct ServerInfo {
  * @brief The Connection class
  * Main client class.
  */
-class Connection : public QObject {
+class QREDISCLIENT_EXPORT Connection : public QObject {
   Q_OBJECT
   ADD_EXCEPTION
 
