@@ -7,7 +7,6 @@
 
 #include "command.h"
 #include "scancommand.h"
-#include "scanresponse.h"
 #include "transporters/defaulttransporter.h"
 #include "utils/compat.h"
 #include "utils/sync.h"
@@ -95,31 +94,33 @@ void RedisClient::Connection::disconnect() {
   m_dbNumber = 0;
 }
 
-void RedisClient::Connection::command(const RedisClient::Command &cmd) {
+QFuture<RedisClient::Response> RedisClient::Connection::command(
+    const RedisClient::Command &cmd) {
   try {
-    this->runCommand(cmd);
+    return this->runCommand(cmd);
   } catch (RedisClient::Connection::Exception &e) {
     throw Exception("Cannot execute command." + QString(e.what()));
   }
 }
 
-void RedisClient::Connection::command(QList<QByteArray> rawCmd, int db) {
+QFuture<RedisClient::Response> RedisClient::Connection::command(
+    QList<QByteArray> rawCmd, int db) {
   Command cmd(rawCmd, db);
 
   try {
-    this->runCommand(cmd);
+    return this->runCommand(cmd);
   } catch (RedisClient::Connection::Exception &e) {
     throw Exception("Cannot execute command." + QString(e.what()));
   }
 }
 
-void RedisClient::Connection::command(QList<QByteArray> rawCmd, QObject *owner,
-                                      RedisClient::Command::Callback callback,
-                                      int db) {
+QFuture<RedisClient::Response> RedisClient::Connection::command(
+    QList<QByteArray> rawCmd, QObject *owner,
+    RedisClient::Command::Callback callback, int db) {
   Command cmd(rawCmd, owner, callback, db);
 
   try {
-    this->runCommand(cmd);
+    return this->runCommand(cmd);
   } catch (RedisClient::Connection::Exception &e) {
     throw Exception("Cannot execute command." + QString(e.what()));
   }
@@ -131,55 +132,17 @@ RedisClient::Response RedisClient::Connection::commandSync(
   return commandSync(cmd);
 }
 
-RedisClient::Response RedisClient::Connection::commandSync(QString cmd,
-                                                           int db) {
-  QList<QByteArray> rawCmd{cmd.toUtf8()};
-  return commandSync(rawCmd, db);
-}
-
-RedisClient::Response RedisClient::Connection::commandSync(QString cmd,
-                                                           QString arg1,
-                                                           int db) {
-  QList<QByteArray> rawCmd{cmd.toUtf8(), arg1.toUtf8()};
-  return commandSync(rawCmd, db);
-}
-
-RedisClient::Response RedisClient::Connection::commandSync(QString cmd,
-                                                           QString arg1,
-                                                           QString arg2,
-                                                           int db) {
-  QList<QByteArray> rawCmd{cmd.toUtf8(), arg1.toUtf8(), arg2.toUtf8()};
-  return commandSync(rawCmd, db);
-}
-
-RedisClient::Response RedisClient::Connection::commandSync(
-    QString cmd, QString arg1, QString arg2, QString arg3, int db) {
-  QList<QByteArray> rawCmd{cmd.toUtf8(), arg1.toUtf8(), arg2.toUtf8(),
-                           arg3.toUtf8()};
-  return commandSync(rawCmd, db);
-}
-
 RedisClient::Response RedisClient::Connection::commandSync(
     const Command &command) {
-  auto cmd = command;
-  CommandExecutor syncObject(cmd, m_config.executeTimeout());
-  syncObject.addAbortSignal(m_transporter.data(),
-                            &AbstractTransporter::errorOccurred);
+  auto future = runCommand(command);
 
-  runCommand(cmd);
+  if (future.isCanceled()) return RedisClient::Response();
 
-  RedisClient::Response resp;
-
-  try {
-    resp = syncObject.waitResult();
-  } catch (CommandExecutor::Exception &e) {
-    throw Exception(e.what());
-  }
-
-  return resp;
+  return future.result();
 }
 
-void RedisClient::Connection::runCommand(const Command &cmd) {
+QFuture<RedisClient::Response> RedisClient::Connection::runCommand(
+    const Command &cmd) {
   if (!cmd.isValid()) throw Exception("Command is not valid");
 
   if (!isConnected()) {
@@ -212,7 +175,10 @@ void RedisClient::Connection::runCommand(const Command &cmd) {
   waiter.addAbortSignal(this, &Connection::shutdownStart);
 
   emit addCommandToWorker(cmd);
-  waiter.wait();
+
+  if (!waiter.wait()) cmd.getDeferred().cancel();
+
+  return cmd.getDeferred().future();
 }
 
 bool RedisClient::Connection::waitForIdle(uint timeout) {
@@ -239,17 +205,18 @@ void RedisClient::Connection::retrieveCollectionIncrementally(
     RedisClient::Connection::IncrementalCollectionCallback callback) {
   if (!cmd.isValidScanCommand()) throw Exception("Invalid command");
 
-  processScanCommand(cmd,
-                     [this, callback](QVariant c, QString err) {
-                       if (err == END_OF_COLLECTION) {
-                         callback(c, QString(), true);
-                       } else if (!err.isEmpty()) {
-                         callback(c, err, true);
-                       } else {
-                         callback(c, QString(), false);
-                       }
-                     },
-                     QSharedPointer<QVariantList>(), true);
+  processScanCommand(
+      cmd,
+      [this, callback](QVariant c, QString err) {
+        if (err == END_OF_COLLECTION) {
+          callback(c, QString(), true);
+        } else if (!err.isEmpty()) {
+          callback(c, err, true);
+        } else {
+          callback(c, QString(), false);
+        }
+      },
+      QSharedPointer<QVariantList>(), true);
 }
 
 RedisClient::ConnectionConfig RedisClient::Connection::getConfig() const {
@@ -277,7 +244,7 @@ RedisClient::DatabaseList RedisClient::Connection::getKeyspaceInfo() {
 
 void RedisClient::Connection::refreshServerInfo() {
   Response infoResult = internalCommandSync({"INFO", "ALL"});
-  m_serverInfo = ServerInfo::fromString(infoResult.getValue().toString());
+  m_serverInfo = ServerInfo::fromString(infoResult.value().toString());
 }
 
 void RedisClient::Connection::getClusterKeys(RawKeysListCallback callback,
@@ -321,7 +288,8 @@ void RedisClient::Connection::flushDbKeys(
     uint dbIndex, std::function<void(const QString &)> callback) {
   auto runOperationForNextNode = [this, dbIndex, callback]() {
     if (clusterConnectToNextMasterNode()) {
-      return command({"FLUSHDB"}, this, m_cmdCallback, dbIndex);
+      command({"FLUSHDB"}, this, m_cmdCallback, dbIndex);
+      return;
     } else {
       return callback(QObject::tr("Cannot connect to cluster node %1:%2")
                           .arg(m_config.host())
@@ -359,9 +327,10 @@ void RedisClient::Connection::flushDbKeys(
 
 void RedisClient::Connection::getDatabaseKeys(RawKeysListCallback callback,
                                               const QString &pattern,
-                                              uint dbIndex) {
-  QList<QByteArray> rawCmd{"scan",           "0",     "MATCH",
-                           pattern.toUtf8(), "COUNT", "10000"};
+                                              uint dbIndex, long scanLimit) {
+  QList<QByteArray> rawCmd{"scan",  "0",
+                           "MATCH", pattern.toUtf8(),
+                           "COUNT", QString::number(scanLimit).toLatin1()};
   ScanCommand keyCmd(rawCmd, dbIndex);
 
   retrieveCollection(keyCmd, [this, callback](QVariant r, QString err) {
@@ -396,7 +365,7 @@ void RedisClient::Connection::getNamespaceItems(
           return callback(NamespaceItems(), error);
         }
 
-        QList<QVariant> result = r.getValue().toList();
+        QList<QVariant> result = r.value().toList();
 
         if (result.size() != 2) {
           return callback(NamespaceItems(), "Invalid response from LUA script");
@@ -489,7 +458,7 @@ void RedisClient::Connection::processScanCommand(
                                       incrementalProcessing);
           }
 
-          callback(r.getValue(), r.getValue().toString());
+          callback(r.value(), r.value().toString());
           return;
         }
 
@@ -500,7 +469,7 @@ void RedisClient::Connection::processScanCommand(
 
         if (incrementalProcessing) result->clear();
 
-        if (!ScanResponse::isValidScanResponse(r)) {
+        if (!r.isValidScanResponse()) {
           if (result->isEmpty())
             callback(QVariant(),
                      incrementalProcessing ? END_OF_COLLECTION : QString());
@@ -510,24 +479,16 @@ void RedisClient::Connection::processScanCommand(
           return;
         }
 
-        RedisClient::ScanResponse *scanResp = (RedisClient::ScanResponse *)(&r);
+        result->append(r.getCollection());
 
-        if (!scanResp) {
-          callback(QVariant(),
-                   "Error occured on cast ScanResponse from Response.");
-          return;
-        }
-
-        result->append(scanResp->getCollection());
-
-        if (scanResp->getCursor() <= 0) {
+        if (r.getCursor() <= 0) {
           callback(QVariant(*result),
                    incrementalProcessing ? END_OF_COLLECTION : QString());
           return;
         }
 
         auto newCmd = cmd;
-        newCmd.setCursor(scanResp->getCursor());
+        newCmd.setCursor(r.getCursor());
 
         processScanCommand(newCmd, callback, result);
       });
@@ -589,7 +550,7 @@ RedisClient::Connection::HostList RedisClient::Connection::getMasterNodes() {
     return result;
   }
 
-  QVariantList slotsList = r.getValue().toList();
+  QVariantList slotsList = r.value().toList();
 
   foreach (QVariant clusterSlot, slotsList) {
     QVariantList details = clusterSlot.toList();
@@ -604,6 +565,23 @@ RedisClient::Connection::HostList RedisClient::Connection::getMasterNodes() {
   return result;
 }
 
+QFuture<bool> RedisClient::Connection::isCommandSupported(
+    QList<QByteArray> rawCmd) {
+  auto d = QSharedPointer<AsyncFuture::Deferred<bool>>(
+      new AsyncFuture::Deferred<bool>());
+
+  cmd(
+      rawCmd, this, -1,
+      [d](RedisClient::Response r) {
+        d->complete(!r.isDisabledCommandErrorMessage());
+      },
+      [d](const QString &err) {
+        d->complete(!err.contains("unknown command"));
+      });
+
+  return d->future();
+}
+
 void RedisClient::Connection::auth() {
   emit log("AUTH");
 
@@ -614,7 +592,7 @@ void RedisClient::Connection::auth() {
 
     Response testResult = internalCommandSync({"PING"});
 
-    if (testResult.toRawString() != "+PONG\r\n") {
+    if (testResult.value().toByteArray() != QByteArray("PONG")) {
       emit authError("Redis server requires password or password is not valid");
       emit error("AUTH ERROR");
       return;
@@ -638,7 +616,7 @@ void RedisClient::Connection::auth() {
         return;
       }
 
-      QVariantList result = mastersResult.getValue().toList();
+      QVariantList result = mastersResult.value().toList();
 
       if (result.size() == 0) {
         emit error(QString("Connection error: invalid response from sentinel"));

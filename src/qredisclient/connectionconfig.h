@@ -4,6 +4,7 @@
 #include <QVariantHash>
 #include <QJsonObject>
 #include <QSslCertificate>
+#include "qredisclient_global.h"
 
 namespace RedisClient {
 
@@ -13,7 +14,7 @@ class Connection;
  * @brief The ConnectionConfig class
  * Supports loading settigns from JSON objects
  */
-class ConnectionConfig
+class QREDISCLIENT_EXPORT ConnectionConfig
 {
 public:
     static const uint DEFAULT_REDIS_PORT = 6379;

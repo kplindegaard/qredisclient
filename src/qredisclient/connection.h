@@ -18,7 +18,6 @@
 namespace RedisClient {
 
 class AbstractTransporter;
-class CommandExecutor;
 
 typedef QMap<int, int> DatabaseList;
 
@@ -26,7 +25,7 @@ typedef QMap<int, int> DatabaseList;
  * @brief The ServerInfo struct
  * Represents redis-server information parsed from INFO command.
  */
-struct ServerInfo {
+struct QREDISCLIENT_EXPORT ServerInfo {
   ServerInfo();
 
   double version;
@@ -48,7 +47,7 @@ struct ServerInfo {
  * @brief The Connection class
  * Main client class.
  */
-class Connection : public QObject {
+class QREDISCLIENT_EXPORT Connection : public QObject {
   Q_OBJECT
   ADD_EXCEPTION
 
@@ -62,6 +61,7 @@ class Connection : public QObject {
   /**
    * @brief Constructs connection class
    * @param c - connection config
+   * @param autoconnect - Auto connect if disconnected
    * NOTE: different config options are required for different transporters.
    */
   Connection(const ConnectionConfig &c, bool autoConnect = true);
@@ -150,7 +150,7 @@ class Connection : public QObject {
    */
   virtual void getDatabaseKeys(RawKeysListCallback callback,
                                const QString &pattern = QString("*"),
-                               uint dbIndex = 0);
+                               uint dbIndex = 0, long scanLimit = 10000);
 
   typedef QList<QPair<QByteArray, ulong>> RootNamespaces;
   typedef QList<QByteArray> RootKeys;
@@ -186,6 +186,13 @@ class Connection : public QObject {
    */
   HostList getMasterNodes();
 
+  /**
+   * @brief isCommandSupported
+   * @param rawCmd
+   * @return
+   */
+  virtual QFuture<bool> isCommandSupported(QList<QByteArray> rawCmd);
+
   /*
    * Command execution API
    */
@@ -193,14 +200,14 @@ class Connection : public QObject {
    * @brief command
    * @param cmd
    */
-  void command(const Command &cmd);
+  QFuture<Response> command(const Command &cmd);
 
   /**
    * @brief Execute command without callback in async mode.
    * @param rawCmd
    * @param db
    */
-  void command(QList<QByteArray> rawCmd, int db = -1);
+  QFuture<Response> command(QList<QByteArray> rawCmd, int db = -1);
 
   /**
    * @brief Execute command with callback in async mode.
@@ -209,8 +216,37 @@ class Connection : public QObject {
    * @param callback
    * @param db
    */
-  void command(QList<QByteArray> rawCmd, QObject *owner,
-               RedisClient::Command::Callback callback, int db = -1);
+  QFuture<Response> command(QList<QByteArray> rawCmd, QObject *owner,
+                            RedisClient::Command::Callback callback,
+                            int db = -1);
+
+  /**
+   * @brief Hi-level wrapper with basic error handling
+   * @param rawCmd
+   * @param owner
+   * @param db
+   * @param callback
+   * @param errback
+   */
+  inline QFuture<Response> cmd(
+      QList<QByteArray> rawCmd, QObject *owner, int db,
+      std::function<void(const RedisClient::Response &)> callback,
+      std::function<void(const QString &)> errback) {
+    try {
+      return this->command(
+          rawCmd, owner,
+          [callback, errback](RedisClient::Response r, QString err) {
+            if (err.size() > 0) return errback(err);
+            if (r.isErrorMessage()) return errback(r.value().toString());
+
+            return callback(r);
+          },
+          db);
+    } catch (const RedisClient::Connection::Exception &e) {
+      errback(QString(e.what()));
+      return QFuture<Response>();
+    }
+  }
 
   /**
    * @brief commandSync
@@ -226,15 +262,6 @@ class Connection : public QObject {
    * @return
    */
   Response commandSync(QList<QByteArray> rawCmd, int db = -1);
-
-  /*
-   * Aliases for ^ function
-   */
-  Response commandSync(QString cmd, int db = -1);
-  Response commandSync(QString cmd, QString arg1, int db = -1);
-  Response commandSync(QString cmd, QString arg1, QString arg2, int db = -1);
-  Response commandSync(QString cmd, QString arg1, QString arg2, QString arg3,
-                       int db = -1);
 
   /**
    * @brief CollectionCallback
@@ -264,10 +291,11 @@ class Connection : public QObject {
       const ScanCommand &cmd, IncrementalCollectionCallback callback);
 
   /**
-   * @brief runCommand - Low level commands execution API
+   * @brief runCommand
    * @param cmd
+   * @return QFuture<Response>
    */
-  virtual void runCommand(const Command &cmd);
+  virtual QFuture<Response> runCommand(const Command &cmd);
 
   /**
    * @brief waitForIdle - Wait until all commands in queue will be processed
@@ -279,7 +307,7 @@ class Connection : public QObject {
    * @brief create new connection object with same settings
    * @return
    */
-  QSharedPointer<Connection> clone() const;
+  virtual QSharedPointer<Connection> clone() const;
 
   /*
    * Low level functions for modification

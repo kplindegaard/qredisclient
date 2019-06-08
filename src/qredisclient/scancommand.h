@@ -4,7 +4,7 @@
 
 namespace RedisClient {
 
-class ScanCommand : public Command
+class QREDISCLIENT_EXPORT ScanCommand : public Command
 {
 public:
     ScanCommand(const QList<QByteArray>& cmd, int db) : Command(cmd, db) {}
