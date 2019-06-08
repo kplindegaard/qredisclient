@@ -1,5 +1,7 @@
 
 REDISCLIENT_SRC_DIR = $$PWD/../../src/qredisclient/
+include($$PWD/../../3rdparty/asyncfuture/asyncfuture.pri)
+
 
 HEADERS  += \
     $$PWD/*.h \

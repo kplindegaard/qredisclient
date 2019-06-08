@@ -41,16 +41,22 @@ void RedisClient::AbstractTransporter::init() {
   connectToHost();
 }
 
+void RedisClient::AbstractTransporter::disconnectFromHost() {
+  if (m_loopTimer && m_loopTimer->isActive()) m_loopTimer->stop();
+  cancelRunningCommands();
+  m_commands.clear();
+}
+
 void RedisClient::AbstractTransporter::addCommand(const Command &cmd) {
   if (cmd.isHiPriorityCommand())
     m_commands.prepend(cmd);
   else
     m_commands.enqueue(cmd);
 
+  emit commandAdded();
+
   if ((cmd.isHiPriorityCommand() && isInitialized()) || m_loopTimer->isActive())
     processCommandQueue();
-
-  emit commandAdded();
 }
 
 void RedisClient::AbstractTransporter::cancelCommands(QObject *owner) {
@@ -131,6 +137,8 @@ void RedisClient::AbstractTransporter::sendResponse(
     m_connection->changeCurrentDbNumber(
         runningCommand->cmd.getPartAsString(1).toInt());
   }
+
+  runningCommand->cmd.getDeferred().complete(response);
 
   if (runningCommand->emitter) {
     runningCommand->emitter->sendResponse(response, QString());
@@ -326,7 +334,8 @@ void RedisClient::AbstractTransporter::runCommand(
 
   qDebug() << "Run command:" << command.getRawString() << " in db "
            << m_connection->m_dbNumber << " with timeout "
-           << m_connection->getConfig().executeTimeout();
+           << m_connection->getConfig().executeTimeout()
+           << "owner=" << command.getOwner();
 
   emit logEvent(QString("%1 > [runCommand] %2")
                     .arg(m_connection->getConfig().name())
@@ -337,11 +346,11 @@ void RedisClient::AbstractTransporter::runCommand(
       QSharedPointer<RunningCommand>(new RunningCommand(command));
   m_runningCommands.enqueue(runningCommand);
 
-  if (m_runningCommands.size() > 1) {
-    qDebug() << "Multiple commands running";
-  }
+    if (m_runningCommands.size() > 1) {
+        qDebug() << "Multiple commands running";
+    }
 
-  sendCommand(runningCommand->cmd.getByteRepresentation());
+    sendCommand(runningCommand->cmd.getByteRepresentation());
 }
 
 RedisClient::AbstractTransporter::RunningCommand::RunningCommand(
