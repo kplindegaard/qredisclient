@@ -24,13 +24,13 @@ build_script:
 
     qmake -v
 
-    qmake CONFIG+=release DESTDIR=%cd%/build
+    qmake "CONFIG+=release staticlib" DESTDIR=%cd%/build
 
     nmake
 
     cd tests\unit_tests
 
-    qmake CONFIG+=release DEFINES+=INTEGRATION_TESTS
+    qmake "CONFIG+=release" DEFINES+=INTEGRATION_TESTS
 
     nmake
 
