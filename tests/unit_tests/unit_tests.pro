@@ -16,6 +16,8 @@ INCLUDEPATH += \
 
 DEFINES += INTEGRATION_TESTS QT_NO_DEBUG_OUTPUT
 
+# Use as shared lib
+LIBS += -L$$PROJECT_ROOT -lqredisclient
 
 isEmpty(DESTDIR) {
     DESTDIR = $$PWD
@@ -29,7 +31,6 @@ unix:!mac {
 }
 
 include($$PWD/redisclient-tests.pri)
-include($$PROJECT_ROOT/3rdparty/3rdparty.pri)
 
 UI_DIR = $$DESTDIR/ui
 OBJECTS_DIR = $$DESTDIR/obj
