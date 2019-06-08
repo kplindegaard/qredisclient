@@ -24,7 +24,7 @@ build_script:
 
     qmake -v
 
-    qmake "CONFIG+=release staticlib" DESTDIR=%cd%/build
+    qmake "CONFIG+=release dll" DESTDIR=%cd%/build
 
     nmake
 
