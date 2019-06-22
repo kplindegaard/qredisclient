@@ -1,0 +1,47 @@
+version: 1.0.{build}
+image: Visual Studio 2017
+init:
+- cmd: >-
+    set PATH=%QTDIR%\bin;%PATH%
+
+    call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
+environment:
+  QTDIR: C:\Qt\5.9\msvc2017_64
+install:
+- ps: >-
+    mkdir redis-3.2.100
+
+    ./redis4appveyor.ps1
+build_script:
+- cmd: >-
+    git submodule update --init --recursive
+
+    cd 3rdparty\hiredis
+
+    git apply ..\hiredis-win.patch
+
+    cd ..\..
+
+    qmake -v
+
+    qmake CONFIG+=release DESTDIR=%cd%/build
+
+    nmake
+
+    cd tests\unit_tests
+
+    qmake CONFIG+=release DEFINES+=INTEGRATION_TESTS
+
+    nmake
+
+    cd ..\..
+test_script:
+- cmd: >-
+    cd tests\unit_tests
+
+    .\tests.exe -vs
+
+
+    REM .\tests.exe -xunitxml -o TEST-results.xml
+
+    REM curl -F file=@TEST-results.xml "https://ci.appveyor.com/api/testresults/junit/%APPVEYOR_JOB_ID%"
