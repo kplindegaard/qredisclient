@@ -13,7 +13,7 @@ namespace RedisClient {
 
 class Command;
 
-class SignalWaiter : public QObject {
+class QREDISCLIENT_EXPORT SignalWaiter : public QObject {
   Q_OBJECT
  public:
   SignalWaiter(uint timeout);

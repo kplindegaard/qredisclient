@@ -3,9 +3,10 @@
 #include <QString>
 #include <QTextCodec>
 #include <cctype>
+#include <qredisclient/qredisclient_global.h>
 
-QString printableString(const QByteArray& raw, bool strictChecks = false);
+QREDISCLIENT_EXPORT QString printableString(const QByteArray& raw, bool strictChecks = false);
 
-bool isBinary(const QByteArray& raw);
+QREDISCLIENT_EXPORT bool isBinary(const QByteArray& raw);
 
-QByteArray printableStringToBinary(const QString& str);
+QREDISCLIENT_EXPORT QByteArray printableStringToBinary(const QString& str);

@@ -11,7 +11,7 @@ namespace RedisClient {
  * Provides execution of redis commands through direct TCP socket.
  * Supports SSL.
  */
-class DefaultTransporter : public AbstractTransporter {
+class QREDISCLIENT_EXPORT DefaultTransporter : public AbstractTransporter {
   Q_OBJECT
  public:
   DefaultTransporter(Connection* c);

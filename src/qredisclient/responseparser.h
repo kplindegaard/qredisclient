@@ -3,6 +3,7 @@
 #include <QSharedPointer>
 #include <QVariant>
 #include <QVector>
+#include "qredisclient/qredisclient_global.h"
 
 struct redisReader;
 struct redisReadTask;
@@ -12,7 +13,7 @@ namespace RedisClient {
 
 class Response;
 
-class ResponseParser {
+class QREDISCLIENT_EXPORT ResponseParser {
  public:
   ResponseParser();
 
