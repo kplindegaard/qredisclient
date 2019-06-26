@@ -19,7 +19,7 @@ class Connection;
  * Provides basic abstraction for transporting commands to redis-server.
  * THIS IS IMPLEMENTATION CLASS AND SHOULDN'T BE USED DIRECTLY.
  */
-class AbstractTransporter : public QObject {
+class QREDISCLIENT_EXPORT AbstractTransporter : public QObject {
   Q_OBJECT
  public:
   AbstractTransporter(Connection* c);  // TODO: replace raw pointer by WeakPtr
@@ -60,7 +60,7 @@ class AbstractTransporter : public QObject {
   void resetDbIndex();
 
  protected:
-  class RunningCommand {
+  class QREDISCLIENT_EXPORT RunningCommand {
    public:
     RunningCommand(const Command& cmd);
     Command cmd;

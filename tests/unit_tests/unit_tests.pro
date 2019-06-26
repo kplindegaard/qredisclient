@@ -3,7 +3,7 @@ QT       += core network testlib
 TARGET = tests
 TEMPLATE = app
 
-CONFIG += debug c++11
+CONFIG += c++11
 CONFIG-=app_bundle   
 
 PROJECT_ROOT = $$PWD/../..//
@@ -16,8 +16,26 @@ INCLUDEPATH += \
 
 DEFINES += INTEGRATION_TESTS QT_NO_DEBUG_OUTPUT
 
-# Use as shared lib
-LIBS += -L$$PROJECT_ROOT -lqredisclient
+LIBS += -L$$PROJECT_ROOT
+CONFIG(debug, debug|release) {
+    qredisclientshared: {
+        unix: LIBS += -lqredisclient_debug
+        else: LIBS += qredisclientd0.lib
+    } 
+    else { 
+        unix: LIBS += -lqredisclient
+        else: LIBS += qredisclient.lib 
+    }
+} else {
+    qredisclientshared: {
+        unix: LIBS += -lqredisclient
+        else: LIBS += qredisclient0.lib
+    } 
+    else { 
+        unix: LIBS += -lqredisclient
+        else: LIBS += qredisclient.lib 
+    }
+}
 
 isEmpty(DESTDIR) {
     DESTDIR = $$PWD
