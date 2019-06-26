@@ -24,15 +24,17 @@ build_script:
 
     qmake -v
 
-    qmake "CONFIG+=release dll" DESTDIR=%cd%/build
+    qmake "CONFIG+=qredisclientshared" DESTDIR=%cd%/build
 
-    nmake
+    nmake release
 
     cd tests\unit_tests
 
-    qmake "CONFIG+=release" DEFINES+=INTEGRATION_TESTS
+    qmake "CONFIG+=qredisclientshared" DEFINES+=INTEGRATION_TESTS
 
-    nmake
+    nmake release
+    
+    copy ..\..\build\qredisclient0.dll
 
     cd ..\..
 test_script:
