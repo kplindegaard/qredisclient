@@ -3,7 +3,6 @@
 #include <QSharedPointer>
 #include <QVariant>
 #include <QVector>
-#include "qredisclient/qredisclient_global.h"
 
 struct redisReader;
 struct redisReadTask;

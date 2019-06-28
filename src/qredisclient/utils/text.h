@@ -3,7 +3,6 @@
 #include <QString>
 #include <QTextCodec>
 #include <cctype>
-#include <qredisclient/qredisclient_global.h>
 
 QREDISCLIENT_EXPORT QString printableString(const QByteArray& raw, bool strictChecks = false);
 

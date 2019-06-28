@@ -4,7 +4,6 @@
 #include <QVariantHash>
 #include <QJsonObject>
 #include <QSslCertificate>
-#include "qredisclient_global.h"
 
 namespace RedisClient {
 

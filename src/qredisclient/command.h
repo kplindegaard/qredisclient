@@ -5,7 +5,6 @@
 #include <QObject>
 #include <QString>
 #include <functional>
-#include "qredisclient_global.h"
 #include "response.h"
 
 namespace RedisClient {

@@ -2,8 +2,15 @@ QT += core network
 
 CONFIG += c++11
 
-# If qredisclient configured used/built as shared, declare macro
-qredisclientshared:DEFINES += QREDISCLIENT_SHARED
+CONFIG(qredisclientshared) {
+    equals(QREDISCLIENT_BUILD, 1) {
+        DEFINES += "QREDISCLIENT_EXPORT=Q_DECL_EXPORT"
+    } else {
+        DEFINES += "QREDISCLIENT_EXPORT=Q_DECL_IMPORT"
+    }
+} else {
+    DEFINES += "QREDISCLIENT_EXPORT="
+}
 
 INCLUDEPATH += $$PWD/src
 
