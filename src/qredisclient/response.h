@@ -6,7 +6,6 @@
 #include <QVector>
 
 #include "exception.h"
-#include "qredisclient_global.h"
 
 struct redisReader;
 struct redisReadTask;

@@ -9,9 +9,17 @@ CONFIG-=app_bundle
 PROJECT_ROOT = $$PWD/../..//
 SRC_DIR = $$PROJECT_ROOT/src//
 
+include($$PWD/redisclient-tests.pri)
+
 INCLUDEPATH += \
-    $$SRC_DIR/ \
     $$PWD/
+
+HEADERS  += \
+    $$PWD/*.h \
+    $$PWD/mocks/*.h
+
+SOURCES += \
+    $$PWD/*.cpp \
 
 
 DEFINES += INTEGRATION_TESTS QT_NO_DEBUG_OUTPUT
@@ -48,12 +56,14 @@ unix:!mac {
     LIBS += -lgcov
 }
 
-include($$PWD/redisclient-tests.pri)
+
+OTHER_FILES += \
+    connections.xml
+
+RESOURCES += \
+    $$PROJECT_ROOT/lua.qrc
 
 UI_DIR = $$DESTDIR/ui
 OBJECTS_DIR = $$DESTDIR/obj
 MOC_DIR = $$DESTDIR/obj
 RCC_DIR = $$DESTDIR/obj
-
-RESOURCES += \
-    $$PROJECT_ROOT/lua.qrc

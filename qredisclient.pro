@@ -2,11 +2,18 @@ TEMPLATE = lib
 VERSION = 0.1.0
 TARGET = qredisclient
 
+
 # Handle shared and static builds
-!qredisclientshared {
+CONFIG(qredisclientshared) {
+    CONFIG += dll
+    CONFIG(debug, debug|release) {
+        unix: TARGET = $$join(TARGET,,,_debug)
+        else: TARGET = $$join(TARGET,,,d)
+    }
+} else {
     CONFIG += staticlib
 }
-DEFINES += QREDISCLIENT_BUILD
+QREDISCLIENT_BUILD = 1
 
 include($$PWD/qredisclient.pri)
 
@@ -40,12 +47,6 @@ exists($$PWD/src/qredisclient/transporters/ssh/ssh.pri) {
 
 RESOURCES += \
     $$PWD/lua.qrc
-
-# Building shared, append the correct postfix to the lib
-qredisclientshared: CONFIG(debug, debug|release) {
-    unix: TARGET = $$join(TARGET,,,_debug)
-    else: TARGET = $$join(TARGET,,,d)
-}
 
 OBJECTS_DIR = $$DESTDIR/obj
 MOC_DIR = $$DESTDIR/obj
