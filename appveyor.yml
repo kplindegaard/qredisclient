@@ -6,7 +6,9 @@ init:
 
     call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
 environment:
-  QTDIR: C:\Qt\5.9\msvc2017_64
+  matrix:
+  - QTDIR: C:\Qt\5.9\msvc2017_64
+  - QTDIR: C:\Qt\5.12\msvc2017_64
 install:
 - ps: >-
     mkdir redis-3.2.100
@@ -41,9 +43,31 @@ test_script:
 - cmd: >-
     cd tests\unit_tests
 
-    .\tests.exe -vs
+    .\tests.exe -xunitxml -o TEST-results.xml
+
+on_finish:
+- ps: >-
+    $wc = New-Object 'System.Net.WebClient'
+
+    $uri = "https://ci.appveyor.com/api/testresults/junit/$($env:APPVEYOR_JOB_ID)"
+
+    $Dir = "$($env:APPVEYOR_BUILD_FOLDER)\tests\unit_tests"
+
+    cd $Dir
+
+    dir .
 
 
-    REM .\tests.exe -xunitxml -o TEST-results.xml
+    echo "Publish tests in $Dir to $uri"
 
-    REM curl -F file=@TEST-results.xml "https://ci.appveyor.com/api/testresults/junit/%APPVEYOR_JOB_ID%"
+    foreach($item in (gci $Dir "*.xml" | % name))
+
+    {
+
+      echo "Publishing $item"
+
+      $resp = $wc.UploadFile($uri, (Resolve-Path $item))
+      
+      Write-Output $resp
+
+    }

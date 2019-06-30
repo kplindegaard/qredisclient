@@ -12,6 +12,20 @@
 #include "test_text.h"
 #include "test_transporters.h"
 
+
+QStringList& incOutfile(QStringList& args, const QString& pattern)
+{
+  static int number = 1;
+  if (args.contains("-o"))
+  {
+    QString rePattern = QString::fromUtf8("\\d?\\") + pattern;
+    QRegularExpression re = QRegularExpression(rePattern);
+    QString after = QString::number(number++) + pattern;
+    return args.replaceInStrings(re, after);
+  }
+  return args;
+}
+
 int main(int argc, char *argv[]) {
   QCoreApplication app(argc, argv);
 
@@ -25,13 +39,16 @@ int main(int argc, char *argv[]) {
   QScopedPointer<QObject> testTransporters(new TestTransporters);
   QScopedPointer<QObject> testConnection(new TestConnection);
 
-  int allTestsResult = 0 + QTest::qExec(testCommand.data(), argc, argv) +
-                       QTest::qExec(testResponseParser.data(), argc, argv) +
-                       QTest::qExec(testResponse.data(), argc, argv) +
-                       QTest::qExec(testConfig.data(), argc, argv) +
-                       QTest::qExec(testText.data(), argc, argv) +
-                       QTest::qExec(testTransporters.data(), argc, argv) +
-                       QTest::qExec(testConnection.data(), argc, argv);
+  QStringList args = app.arguments();
+  QString pattern = QString::fromUtf8(".xml");
+
+  int allTestsResult = 0 + QTest::qExec(testCommand.data(), incOutfile(args, pattern)) +
+                       QTest::qExec(testResponseParser.data(), incOutfile(args, pattern)) +
+                       QTest::qExec(testResponse.data(), incOutfile(args, pattern)) +
+                       QTest::qExec(testConfig.data(), incOutfile(args, pattern)) +
+                       QTest::qExec(testText.data(), incOutfile(args, pattern)) +
+                       QTest::qExec(testTransporters.data(), incOutfile(args, pattern)) +
+                       QTest::qExec(testConnection.data(), incOutfile(args, pattern));
 
   if (allTestsResult == 0)
     qDebug() << "[Tests PASS]";
